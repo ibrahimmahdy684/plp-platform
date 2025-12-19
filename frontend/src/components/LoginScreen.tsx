@@ -21,14 +21,12 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     password: '',
   });
 
-  // Register form state
+  // Register form state - Only guardians can self-register (children are created by guardians)
   const [registerForm, setRegisterForm] = useState({
     userName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'Guardian' as 'Child' | 'Guardian',
-    ageGroup: '6-8' as '3-5' | '6-8' | '9-12',
   });
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -71,25 +69,22 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       const result = await register({
         userName: registerForm.userName,
-        email: registerForm.role === 'Guardian' ? registerForm.email : undefined,
+        email: registerForm.email,
         password: registerForm.password,
-        role: registerForm.role,
-        ageGroup: registerForm.role === 'Child' ? registerForm.ageGroup : undefined,
+        role: 'Guardian',
       });
 
       if (result.success) {
         toast.success('Account created successfully! Please log in. 🎉');
-        // Reset form and redirect to appropriate login screen
+        // Reset form and redirect to guardian login screen
         setRegisterForm({
           userName: '',
           email: '',
           password: '',
           confirmPassword: '',
-          role: 'Guardian',
-          ageGroup: '6-8',
         });
-        // Redirect to the appropriate login screen based on role
-        setMode(registerForm.role === 'Child' ? 'childLogin' : 'guardianLogin');
+        // Redirect to guardian login screen
+        setMode('guardianLogin');
       } else {
         toast.error(result.message || 'Registration failed');
       }
@@ -347,32 +342,11 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
 
           <form onSubmit={handleRegisterSubmit} className="bg-white rounded-3xl p-8 shadow-xl border-4 border-green-200">
             <div className="space-y-4">
-              <div>
-                <label className="block text-purple-800 font-semibold mb-2">I am a...</label>
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setRegisterForm({ ...registerForm, role: 'Guardian' })}
-                    className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                      registerForm.role === 'Guardian'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    👨‍👩‍👧 Guardian
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRegisterForm({ ...registerForm, role: 'Child' })}
-                    className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-                      registerForm.role === 'Child'
-                        ? 'bg-yellow-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    ⭐ Child
-                  </button>
-                </div>
+              <div className="text-center mb-2">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  👨‍👩‍👧 Guardian Registration
+                </span>
+                <p className="text-xs text-gray-500 mt-2">Children accounts are created from your dashboard after registration</p>
               </div>
 
               <div>
@@ -387,34 +361,17 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                 />
               </div>
 
-              {registerForm.role === 'Guardian' && (
-                <div>
-                  <label className="block text-purple-800 font-semibold mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={registerForm.email}
-                    onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
-                    placeholder="Enter your email"
-                    required
-                  />
-                </div>
-              )}
-
-              {registerForm.role === 'Child' && (
-                <div>
-                  <label className="block text-purple-800 font-semibold mb-2">Age Group</label>
-                  <select
-                    value={registerForm.ageGroup}
-                    onChange={(e) => setRegisterForm({ ...registerForm, ageGroup: e.target.value as '3-5' | '6-8' | '9-12' })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
-                  >
-                    <option value="3-5">3-5 years old</option>
-                    <option value="6-8">6-8 years old</option>
-                    <option value="9-12">9-12 years old</option>
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block text-purple-800 font-semibold mb-2">Email</label>
+                <input
+                  type="email"
+                  value={registerForm.email}
+                  onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none"
+                  placeholder="Enter your email"
+                  required
+                />
+              </div>
 
               <div>
                 <label className="block text-purple-800 font-semibold mb-2">Password</label>

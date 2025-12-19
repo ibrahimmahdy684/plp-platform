@@ -22,7 +22,7 @@ export interface RegisterData {
   userName: string;
   email?: string;
   password: string;
-  role: 'Child' | 'Guardian';
+  role: 'Guardian'; // Only guardians can self-register; children are created by guardians
   ageGroup?: '3-5' | '6-8' | '9-12';
   preferredLanguage?: 'en-US' | 'ar-EG';
 }

@@ -13,7 +13,7 @@ interface AuthContextType {
     userName: string;
     email?: string;
     password: string;
-    role: 'Child' | 'Guardian';
+    role: 'Guardian'; // Only guardians can self-register; children are created by guardians
     ageGroup?: '3-5' | '6-8' | '9-12';
   }) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userName: string;
     email?: string;
     password: string;
-    role: 'Child' | 'Guardian';
+    role: 'Guardian'; // Only guardians can self-register; children are created by guardians
     ageGroup?: '3-5' | '6-8' | '9-12';
   }): Promise<{ success: boolean; message?: string }> => {
     try {

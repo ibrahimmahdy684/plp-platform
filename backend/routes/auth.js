@@ -6,7 +6,7 @@ const { generateToken } = require('../middleware/auth');
 const { authenticate, registerValidation, loginValidation } = require('../middleware');
 
 // @route   POST /api/auth/register
-// @desc    Register a new user (Child, Guardian, or Admin)
+// @desc    Register a new user (Guardian or Admin only - Children accounts are created by Guardians)
 // @access  Public
 router.post('/register', registerValidation, async (req, res) => {
   try {
@@ -14,6 +14,14 @@ router.post('/register', registerValidation, async (req, res) => {
 
     // Support Admin as an alias for SystemAdmin (canonical role).
     const normalizedRole = role === 'Admin' ? 'SystemAdmin' : role;
+
+    // Children cannot self-register - they must be created by a guardian
+    if (normalizedRole === 'Child') {
+      return res.status(403).json({
+        success: false,
+        message: 'Children accounts can only be created by guardians'
+      });
+    }
 
     // Check if user already exists
     if (email) {
