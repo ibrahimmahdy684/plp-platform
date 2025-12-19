@@ -84,7 +84,8 @@ router.get('/children', authenticate, authorize('Guardian'), async (req, res) =>
         timeUsedToday: profile.timeUsedToday,
         timeRemaining: Math.max(0, profile.timeLimitMinutes - profile.timeUsedToday),
         totalGamesPlayed: profile.totalGamesPlayed,
-        totalTimeSpent: profile.totalTimeSpent
+        totalTimeSpent: profile.totalTimeSpent,
+        allowedGames: profile.allowedGames || []
       };
     }));
 

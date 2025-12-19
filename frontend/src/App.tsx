@@ -30,6 +30,7 @@ export interface ChildProfile extends User {
   achievements: string[];
   timeLimitMinutes: number;
   timeUsedToday: number;
+  allowedGames?: string[];
 }
 
 export interface GuardianProfile extends User {

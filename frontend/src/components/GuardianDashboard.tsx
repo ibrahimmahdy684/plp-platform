@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, User, Clock, AlertTriangle, Star, Trophy, TrendingUp, LogOut, CheckCircle, XCircle, Settings, Loader2, UserPlus } from 'lucide-react';
 import { GuardianProfile, ChildProfile, AgeGroup } from '../App';
-import { guardianApi, ChildDetails, Alert } from '../services/api';
+import { guardianApi, gamesApi, ChildDetails, Alert, GameData } from '../services/api';
 import { toast } from 'sonner';
 
 interface GuardianDashboardProps {
@@ -15,6 +15,8 @@ export function GuardianDashboard({ guardianProfile, onLogout, onCreateChild }: 
   const [selectedChildId, setSelectedChildId] = useState<string>('');
   const [safetyAlerts, setSafetyAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableGames, setAvailableGames] = useState<GameData[]>([]);
+  const [allowedGamesMap, setAllowedGamesMap] = useState<Record<string, string[]>>({});
   const [stats, setStats] = useState({
     totalChildren: 0,
     totalPoints: 0,
@@ -28,6 +30,12 @@ export function GuardianDashboard({ guardianProfile, onLogout, onCreateChild }: 
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        
+        // Fetch available games
+        const gamesResponse = await gamesApi.getAll();
+        if (gamesResponse.success && gamesResponse.data) {
+          setAvailableGames(gamesResponse.data);
+        }
         
         // Fetch children
         const childrenResponse = await guardianApi.getChildren();
@@ -43,8 +51,19 @@ export function GuardianDashboard({ guardianProfile, onLogout, onCreateChild }: 
             achievements: child.achievements || [],
             timeLimitMinutes: child.timeLimitMinutes || 60,
             timeUsedToday: child.timeUsedToday || 0,
+            allowedGames: child.allowedGames || [],
           }));
           setChildrenData(children);
+          
+          // Build allowedGamesMap from children data
+          const gamesMap: Record<string, string[]> = {};
+          childrenResponse.data.forEach((child: any) => {
+            const childId = child.profileId || child._id;
+            // Ensure IDs are strings (MongoDB ObjectIds may need conversion)
+            gamesMap[childId] = (child.allowedGames || []).map((id: any) => id.toString ? id.toString() : String(id));
+          });
+          setAllowedGamesMap(gamesMap);
+          
           if (children.length > 0 && !selectedChildId) {
             setSelectedChildId(children[0].id || children[0].odId || '');
           }
@@ -125,6 +144,68 @@ export function GuardianDashboard({ guardianProfile, onLogout, onCreateChild }: 
     } catch (error) {
       toast.error('Failed to update settings');
     }
+  };
+
+  const handleToggleGameAccess = async (gameId: string, isCurrentlyAllowed: boolean) => {
+    if (!selectedChild?.id && !selectedChild?.odId) return;
+    
+    const childId = selectedChild.id || selectedChild.odId || '';
+    const currentAllowed = allowedGamesMap[childId] || [];
+    
+    let newAllowedGames: string[];
+    
+    if (isCurrentlyAllowed) {
+      // Disabling a game
+      if (currentAllowed.length === 0) {
+        // If no restrictions exist (all games allowed), add all games EXCEPT this one
+        newAllowedGames = availableGames
+          .map(g => g._id)
+          .filter(id => id !== gameId);
+      } else {
+        // Remove the game from allowed list
+        newAllowedGames = currentAllowed.filter(id => id !== gameId);
+      }
+    } else {
+      // Enabling a game - add it to allowed list
+      newAllowedGames = [...currentAllowed, gameId];
+    }
+    
+    try {
+      const response = await guardianApi.updateAllowedGames(childId, newAllowedGames);
+      
+      if (response.success) {
+        // Use the response data if available, otherwise use what we sent
+        const updatedAllowedGames = response.data?.allowedGames 
+          ? response.data.allowedGames.map((id: any) => id.toString ? id.toString() : String(id))
+          : newAllowedGames;
+        
+        setAllowedGamesMap(prev => ({
+          ...prev,
+          [childId]: updatedAllowedGames
+        }));
+        toast.success(isCurrentlyAllowed ? 'Game disabled' : 'Game enabled');
+      } else {
+        toast.error('Failed to update game access');
+      }
+    } catch (error) {
+      toast.error('Failed to update game access');
+    }
+  };
+
+  // Check if a game is allowed for the selected child
+  const isGameAllowed = (gameId: string): boolean => {
+    if (!selectedChildId) return true;
+    const childAllowed = allowedGamesMap[selectedChildId];
+    // If no allowedGames set, all games are allowed by default
+    if (!childAllowed || childAllowed.length === 0) return true;
+    return childAllowed.includes(gameId);
+  };
+
+  // Check if any game restrictions are set (empty means all allowed)
+  const hasGameRestrictions = (): boolean => {
+    if (!selectedChildId) return false;
+    const childAllowed = allowedGamesMap[selectedChildId];
+    return childAllowed && childAllowed.length > 0;
   };
 
   const getSeverityColor = (severity: string) => {
@@ -421,19 +502,39 @@ export function GuardianDashboard({ guardianProfile, onLogout, onCreateChild }: 
                 <Shield className="w-6 h-6 text-purple-500" />
                 Content Access Control
               </h2>
+              <p className="text-sm text-gray-500 mb-4">
+                {hasGameRestrictions() 
+                  ? 'Only enabled games can be played by the child.'
+                  : 'All games are currently allowed. Toggle off games to restrict access.'}
+              </p>
               <div className="space-y-3">
-                {['Math Games', 'Physics Games', 'Language Games', 'Coding Games'].map((game) => (
-                  <div
-                    key={game}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
-                  >
-                    <span className="text-gray-700">{game}</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                    </label>
-                  </div>
-                ))}
+                {availableGames.length > 0 ? (
+                  availableGames.map((game) => {
+                    const gameAllowed = isGameAllowed(game._id);
+                    return (
+                      <div
+                        key={game._id}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-700">{game.name}</span>
+                          <span className="text-xs text-gray-400 capitalize">({game.gameType})</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={gameAllowed}
+                            onChange={() => handleToggleGameAccess(game._id, gameAllowed)}
+                          />
+                          <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </label>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No games available</p>
+                )}
               </div>
             </div>
 
